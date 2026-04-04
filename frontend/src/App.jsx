@@ -8,6 +8,7 @@ import SignupPage from './pages/auth/SignupPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import POSTerminal from './pages/pos/POSTerminal';
 import KitchenDisplay from './pages/kitchen/KitchenDisplay';
+import PosSelect from './pages/pos/PosSelect';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/dashboard/*" element={<ProtectedRoute><RoleRoute roles={['admin']}><DashboardPage /></RoleRoute></ProtectedRoute>} />
           <Route path="/pos/:config_id/*" element={<ProtectedRoute><POSTerminal /></ProtectedRoute>} />
           <Route path="/kitchen/:session_id" element={<ProtectedRoute><KitchenDisplay /></ProtectedRoute>} />
+          <Route path="/pos-select" element={<ProtectedRoute><PosSelect /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-right" />
