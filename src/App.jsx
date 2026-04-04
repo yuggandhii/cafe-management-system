@@ -1,0 +1,52 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import RoleRoute from './components/auth/RoleRoute';
+
+// Pages (we'll create these next)
+import LoginPage from './pages/auth/LoginPage';
+import SignupPage from './pages/auth/SignupPage';
+import DashboardPage from './pages/admin/DashboardPage';
+import POSTerminal from './pages/pos/POSTerminal';
+import KitchenDisplay from './pages/kitchen/KitchenDisplay';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
+});
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Navigate to="/dashboard" replace />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/*" element={
+            <ProtectedRoute>
+              <RoleRoute roles={['admin']}>
+                <DashboardPage />
+              </RoleRoute>
+            </ProtectedRoute>
+          } />
+          <Route path="/pos/:config_id/*" element={
+            <ProtectedRoute>
+              <POSTerminal />
+            </ProtectedRoute>
+          } />
+          <Route path="/kitchen/:session_id" element={
+            <ProtectedRoute>
+              <KitchenDisplay />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+      <Toaster position="top-right" />
+    </QueryClientProvider>
+  );
+}
