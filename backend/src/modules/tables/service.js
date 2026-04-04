@@ -46,3 +46,13 @@ const toggleActive = async (id) => {
 };
 
 module.exports = { list, create, update, toggleActive };
+
+const getTableStatuses = async (session_id) => {
+  const orders = await db('orders')
+    .where({ session_id, status: 'draft' })
+    .select('table_id');
+  const occupiedIds = orders.map(o => o.table_id).filter(Boolean);
+  return occupiedIds;
+};
+
+module.exports = { ...module.exports, getTableStatuses };
