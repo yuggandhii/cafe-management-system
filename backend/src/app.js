@@ -45,6 +45,7 @@ app.use('/api/products', require('./modules/products/routes'));
 app.use('/api/customers', require('./modules/customers/routes'));
 app.use('/api/orders', require('./modules/orders/routes'));
 app.use('/api/payments', require('./modules/payments/routes'));
+app.use('/api/kitchen', require('./modules/kitchen/routes'));
 
 // Socket.io
 io.on('connection', (socket) => {
