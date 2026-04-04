@@ -67,7 +67,7 @@ export default function SignupPage() {
                         <label className={styles.label}>Full Name</label>
                         <input
                             {...register('name')}
-                            placeholder="John Doe"
+                            placeholder="Enter your full name"
                             className={[styles.input, errors.name ? styles.inputError : ''].join(' ')}
                         />
                         {errors.name && <span className={styles.error}>{errors.name.message}</span>}

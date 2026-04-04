@@ -1,7 +1,7 @@
 exports.up = function(knex) {
   return knex.schema.createTable('product_variants', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    t.uuid('product_id').references('id').inTable('products').onDelete('CASCADE');
+    t.increments('id').primary();
+    t.integer('product_id').references('id').inTable('products').onDelete('CASCADE');
     t.string('attribute_name').notNullable();
     t.string('value').notNullable();
     t.string('unit').nullable();

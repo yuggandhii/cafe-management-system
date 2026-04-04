@@ -1,9 +1,9 @@
 exports.up = function(knex) {
   return knex.schema.createTable('order_lines', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    t.uuid('order_id').references('id').inTable('orders').onDelete('CASCADE');
-    t.uuid('product_id').references('id').inTable('products').onDelete('SET NULL').nullable();
-    t.uuid('variant_id').references('id').inTable('product_variants').onDelete('SET NULL').nullable();
+    t.increments('id').primary();
+    t.integer('order_id').references('id').inTable('orders').onDelete('CASCADE');
+    t.integer('product_id').references('id').inTable('products').onDelete('SET NULL').nullable();
+    t.integer('variant_id').references('id').inTable('product_variants').onDelete('SET NULL').nullable();
     t.decimal('quantity', 10, 2).defaultTo(1);
     t.decimal('unit_price', 10, 2).notNullable();
     t.decimal('tax_percent', 5, 2).defaultTo(0);

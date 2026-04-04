@@ -1,6 +1,6 @@
 exports.up = function(knex) {
   return knex.schema.createTable('customers', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+    t.increments('id').primary();
     t.string('name').notNullable();
     t.string('email').nullable();
     t.string('phone').nullable();
@@ -10,6 +10,8 @@ exports.up = function(knex) {
     t.string('state').nullable();
     t.string('country').defaultTo('India');
     t.decimal('total_sales', 12, 2).defaultTo(0);
+    t.integer('visit_count').defaultTo(1);
+    t.timestamp('last_visit').defaultTo(knex.fn.now());
     t.timestamps(true, true);
   });
 };

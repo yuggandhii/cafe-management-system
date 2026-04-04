@@ -1,8 +1,8 @@
 exports.up = function(knex) {
   return knex.schema.createTable('sessions', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    t.uuid('pos_config_id').references('id').inTable('pos_configs').onDelete('CASCADE');
-    t.uuid('opened_by').references('id').inTable('users');
+    t.increments('id').primary();
+    t.integer('pos_config_id').references('id').inTable('pos_configs').onDelete('CASCADE');
+    t.integer('opened_by').references('id').inTable('users');
     t.timestamp('opened_at').defaultTo(knex.fn.now());
     t.timestamp('closed_at').nullable();
     t.decimal('opening_cash', 10, 2).defaultTo(0);
