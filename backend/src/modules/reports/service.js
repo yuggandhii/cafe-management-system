@@ -175,5 +175,81 @@ const getTopOrders = async ({ period = 'today', pos_config_id, session_id } = {}
     .orderBy('orders.total', 'desc')
     .limit(10);
 };
+const getHourlyHeatmap = async ({ pos_config_id } = {}) => {
+  const rows = await db('orders')
+    .select(
+      db.raw('EXTRACT(DOW FROM orders.created_at) as day_of_week'),
+      db.raw('EXTRACT(HOUR FROM orders.created_at) as hour'),
+      db.raw('COUNT(*) as order_count'),
+      db.raw('COALESCE(SUM(orders.total), 0) as revenue')
+    )
+    .leftJoin('sessions', 'orders.session_id', 'sessions.id')
+    .where('orders.status', 'paid')
+    .modify(q => { if (pos_config_id) q.where('sessions.pos_config_id', pos_config_id); })
+    .groupBy('day_of_week', 'hour')
+    .orderBy('day_of_week')
+    .orderBy('hour');
 
-module.exports = { getDashboard, getSalesChart, getTopCategories, getTopProducts, getTopOrders };
+  return rows.map(r => ({
+    day: parseInt(r.day_of_week),
+    hour: parseInt(r.hour),
+    count: parseInt(r.order_count),
+    revenue: parseFloat(r.revenue),
+  }));
+};
+
+const getCustomerRetention = async () => {
+  const all = await db('customers').count('* as total').first();
+  const returning = await db('customers').where('visit_count', '>=', 5).count('* as total').first();
+  const occasional = await db('customers').whereBetween('visit_count', [2, 4]).count('* as total').first();
+  const newCustomers = await db('customers').where('visit_count', 1).count('* as total').first();
+
+  const total = parseInt(all.total);
+  const ret = parseInt(returning.total);
+  const occ = parseInt(occasional.total);
+  const nw = parseInt(newCustomers.total);
+
+  return {
+    total,
+    returning: { count: ret, percent: ((ret / total) * 100).toFixed(1) },
+    occasional: { count: occ, percent: ((occ / total) * 100).toFixed(1) },
+    new: { count: nw, percent: ((nw / total) * 100).toFixed(1) },
+  };
+};
+
+const getStaffPerformance = async () => {
+  return db('users')
+    .select(
+      'users.name',
+      'users.role',
+      db.raw('COUNT(DISTINCT sessions.id) as sessions'),
+      db.raw('COUNT(DISTINCT orders.id) as orders'),
+      db.raw('COALESCE(SUM(orders.total), 0) as revenue'),
+      db.raw('COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(sessions.closed_at, NOW()) - sessions.opened_at))/3600), 0) as hours')
+    )
+    .leftJoin('sessions', 'sessions.opened_by', 'users.id')
+    .leftJoin('orders', function() {
+      this.on('orders.session_id', 'sessions.id').andOn('orders.status', db.raw("'paid'"));
+    })
+    .where('users.is_active', true)
+    .whereIn('users.role', ['admin', 'staff'])
+    .groupBy('users.id', 'users.name', 'users.role')
+    .orderBy('revenue', 'desc');
+};
+
+const getTableRevenue = async () => {
+  return db('orders')
+    .select(
+      'tables.table_number',
+      'floors.name as floor_name',
+      db.raw('COUNT(orders.id) as order_count'),
+      db.raw('SUM(orders.total) as revenue')
+    )
+    .leftJoin('tables', 'orders.table_id', 'tables.id')
+    .leftJoin('floors', 'tables.floor_id', 'floors.id')
+    .where('orders.status', 'paid')
+    .whereNotNull('orders.table_id')
+    .groupBy('tables.id', 'tables.table_number', 'floors.name')
+    .orderBy('revenue', 'desc');
+};
+module.exports = { getDashboard, getSalesChart, getTopCategories, getTopProducts, getTopOrders, getHourlyHeatmap, getCustomerRetention, getStaffPerformance, getTableRevenue };

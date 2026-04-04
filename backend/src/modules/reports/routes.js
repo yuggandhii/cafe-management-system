@@ -34,5 +34,19 @@ router.get('/top-orders', async (req, res, next) => {
     return ok(res, await service.getTopOrders(req.query));
   } catch (err) { next(err); }
 });
+router.get('/hourly-heatmap', async (req, res, next) => {
+  try { return ok(res, await service.getHourlyHeatmap(req.query)); } catch (err) { next(err); }
+});
 
+router.get('/customer-retention', async (req, res, next) => {
+  try { return ok(res, await service.getCustomerRetention()); } catch (err) { next(err); }
+});
+
+router.get('/staff-performance', async (req, res, next) => {
+  try { return ok(res, await service.getStaffPerformance()); } catch (err) { next(err); }
+});
+
+router.get('/table-revenue', async (req, res, next) => {
+  try { return ok(res, await service.getTableRevenue()); } catch (err) { next(err); }
+});
 module.exports = router;
