@@ -37,6 +37,9 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', require('./modules/auth/routes'));
 app.use('/api/pos-configs', require('./modules/pos-configs/routes'));
 app.use('/api/sessions', require('./modules/sessions/routes'));
+app.use('/api/floors', require('./modules/floors/routes'));
+app.use('/api/tables', require('./modules/tables/routes'));
+app.use('/api/self-order', require('./modules/self-order/routes'));
 
 // Socket.io
 io.on('connection', (socket) => {
