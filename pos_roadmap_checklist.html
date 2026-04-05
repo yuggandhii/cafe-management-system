@@ -1,0 +1,261 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:1rem 0 2rem;font-family:var(--font-sans)}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:12px}
+.prog-wrap{flex:1;height:5px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:var(--color-background-success);border-radius:3px;transition:width .25s}
+.prog-label{font-size:13px;font-weight:500;color:var(--color-text-secondary);min-width:36px;text-align:right}
+.reset{font-size:12px;color:var(--color-text-tertiary);background:none;border:0.5px solid var(--color-border-tertiary);border-radius:6px;padding:3px 10px;cursor:pointer}
+.reset:hover{background:var(--color-background-secondary)}
+.section{margin-bottom:1.25rem}
+.section-title{font-size:13px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.snum{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:500;flex-shrink:0}
+.task{display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:8px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);margin-bottom:4px;cursor:pointer;transition:background .1s}
+.task:hover{background:var(--color-background-secondary)}
+.task.done .txt{text-decoration:line-through;color:var(--color-text-tertiary)}
+.box{width:16px;height:16px;border-radius:4px;border:0.5px solid var(--color-border-secondary);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.box.on{background:var(--color-background-success);border-color:var(--color-border-success)}
+.txt{font-size:13px;color:var(--color-text-primary);line-height:1.45;flex:1}
+</style>
+<div class="wrap">
+<div class="top">
+  <span style="font-size:13px;color:var(--color-text-secondary)">POS Cafe build checklist</span>
+  <div class="prog-wrap"><div class="prog-fill" id="pf" style="width:0%"></div></div>
+  <span class="prog-label" id="pl">0%</span>
+  <button class="reset" onclick="reset()">reset</button>
+</div>
+<div id="root"></div>
+</div>
+<script>
+const SECTIONS=[
+{n:1,color:'#E6F1FB',tc:'#0C447C',title:'Git setup',tasks:[
+{id:'g1',t:'git init, create main and develop branches, push to GitHub'},
+{id:'g2',t:'Create .gitignore (node_modules, .env, dist)'},
+{id:'g3',t:'Create /backend and /frontend folders at root'},
+{id:'g4',t:'Write root README.md'},
+{id:'g5',t:'git checkout -b feature/backend-setup'},
+]},
+{n:2,color:'#E6F1FB',tc:'#0C447C',title:'Backend initial setup',tasks:[
+{id:'b1',t:'cd backend && npm init -y'},
+{id:'b2',t:'Install: express, dotenv, cors, helmet, cookie-parser, express-rate-limit'},
+{id:'b3',t:'Install: bcryptjs, jsonwebtoken, zod, knex, pg, winston, socket.io, nodemailer, qrcode'},
+{id:'b4',t:'Install devDeps: nodemon, eslint'},
+{id:'b5',t:'Create .env.example — DB creds, JWT secrets, PORT 4000, FRONTEND_URL'},
+{id:'b6',t:'Create knexfile.js — dev/prod configs pointing to local PostgreSQL'},
+{id:'b7',t:'Create src/db/index.js — single Knex instance'},
+{id:'b8',t:'Create src/utils/logger.js — Winston (colorized dev, JSON prod)'},
+{id:'b9',t:'Create src/utils/response.js — ok(), created(), badRequest(), unauthorized(), notFound(), conflict() helpers'},
+{id:'b10',t:'Create src/middleware/errorHandler.js — Zod errors (400), PG unique (409), JWT (401), generic 500'},
+{id:'b11',t:'Create src/middleware/validate.js — validate(schema) and validateQuery(schema) Zod factories'},
+{id:'b12',t:'Create src/middleware/auth.js — requireAuth (JWT verify → req.user) + requireRole(...roles)'},
+{id:'b13',t:'Create src/app.js — Express with helmet, cors, json, cookie-parser, rate limiter, Socket.io attached'},
+{id:'b14',t:'Test: npm run dev → server running on 4000'},
+]},
+{n:3,color:'#FAEEDA',tc:'#633806',title:'Database — PostgreSQL + migrations',tasks:[
+{id:'d1',t:'createdb pos_cafe in PostgreSQL, set DB_PASSWORD in .env'},
+{id:'d2',t:'Migration 001_users: id (uuid), name, email (unique), password_hash, role enum (admin/staff/kitchen), is_active, refresh_token_hash, timestamps'},
+{id:'d3',t:'Migration 002_pos_configs: id, name, enable_cash (bool), enable_digital (bool), enable_upi (bool), upi_id (varchar), last_session_id FK nullable'},
+{id:'d4',t:'Migration 003_sessions: id, pos_config_id FK, opened_by FK users, opened_at, closed_at, opening_cash, closing_cash, status enum (open/closed)'},
+{id:'d5',t:'Migration 004_floors_tables: floors (id, name, pos_config_id FK, sequence, is_active) + tables (id, floor_id FK, table_number, seats, active, qr_token unique)'},
+{id:'d6',t:'Migration 005_products: product_categories (id, name, color, sequence) + products (id, name, category_id FK, price decimal, tax_percent, unit_of_measure, description, is_active)'},
+{id:'d7',t:'Migration 006_product_variants: product_variants (id, product_id FK, attribute_name, value, unit, extra_price) — e.g Pack/6/Unit/+$20'},
+{id:'d8',t:'Migration 007_customers: id, name, email nullable, phone, street1, street2, city, state, country, total_sales decimal default 0'},
+{id:'d9',t:'Migration 008_orders: id, session_id FK, table_id FK nullable, customer_id FK nullable, order_number (auto increment per session), status enum (draft/paid), subtotal, tax_amount, total, notes, created_by FK, timestamps'},
+{id:'d10',t:'Migration 009_order_lines: id, order_id FK (CASCADE), product_id FK, variant_id FK nullable, quantity decimal, unit_price, tax_percent, subtotal, total, notes'},
+{id:'d11',t:'Migration 010_payments: id, order_id FK, method enum (cash/digital/upi), amount decimal, reference varchar nullable, status enum (pending/confirmed), created_at'},
+{id:'d12',t:'Migration 011_kitchen: kitchen_tickets (id, order_id FK unique, status enum to_cook/preparing/completed, sent_at, completed_at) + kitchen_ticket_items (id, ticket_id FK CASCADE, order_line_id FK, product_name, quantity, is_prepared bool default false)'},
+{id:'d13',t:'Migration 012_self_order_tokens: id, table_id FK, session_id FK, token (unique random string), is_active bool, created_at'},
+{id:'d14',t:'Add indexes: orders(session_id), orders(status), order_lines(order_id), kitchen_tickets(status), payments(order_id), tables(qr_token)'},
+{id:'d15',t:'npm run migrate — confirm all 12 tables created with no errors'},
+{id:'d16',t:'Create seeds/01_demo.js — 1 admin user, 1 pos_config (Odoo Cafe), 1 floor (Ground Floor), 5 tables, 3 categories (Food/Drink/Dessert), 8 products with prices and tax'},
+{id:'d17',t:'npm run seed — verify data in each table via psql or pgAdmin'},
+]},
+{n:4,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Auth module',tasks:[
+{id:'a1',t:'validation.js — signupSchema (name, email valid, password 8+ upper+lower+digit+special, role enum), loginSchema'},
+{id:'a2',t:'service.js — signup(): check email unique → "This email is already registered", bcrypt hash (salt 12), insert user'},
+{id:'a3',t:'service.js — login(): find by email, bcrypt compare → "Invalid email or password", sign JWT access (15m) + refresh (7d httpOnly cookie), store hashed refresh in DB'},
+{id:'a4',t:'service.js — refreshToken(), logout() (clear DB hash + cookie)'},
+{id:'a5',t:'routes.js — POST /auth/signup, POST /auth/login, POST /auth/logout (requireAuth), POST /auth/refresh'},
+{id:'a6',t:'Test signup with bad email → 400 field error. Test login wrong password → 401. Test duplicate email → 409'},
+]},
+{n:5,color:'#EEEDFE',tc:'#3C3489',title:'Backend — POS config + sessions',tasks:[
+{id:'pc1',t:'POS config service: list(), getById(), create(name), update(id, {enable_cash, enable_digital, enable_upi, upi_id})'},
+{id:'pc2',t:'POS config routes: GET /pos-configs, POST /pos-configs, GET /pos-configs/:id, PUT /pos-configs/:id — all requireRole(admin)'},
+{id:'pc3',t:'Sessions service: openSession(pos_config_id, user_id, opening_cash) — creates session, updates pos_config.last_session_id'},
+{id:'pc4',t:'Sessions service: closeSession(id, user_id, closing_cash) — status=closed, closes session'},
+{id:'pc5',t:'Sessions service: getActiveSession(pos_config_id) — returns current open session or null'},
+{id:'pc6',t:'Sessions routes: POST /sessions/open, POST /sessions/:id/close, GET /sessions/active/:pos_config_id, GET /sessions/:id'},
+]},
+{n:6,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Floors, tables, self-order tokens',tasks:[
+{id:'f1',t:'Floors service + routes: GET /floors, POST /floors (name, pos_config_id), PUT /floors/:id, DELETE /floors/:id'},
+{id:'f2',t:'Tables service: list(floor_id), create(floor_id, table_number, seats), update(id), toggleActive(id)'},
+{id:'f3',t:'Tables routes: GET /tables?floor_id=, POST /tables, PUT /tables/:id, PATCH /tables/:id/toggle'},
+{id:'f4',t:'Self-order token service: generateToken(table_id, session_id) — creates unique token, returns URL e.g. /s/:token'},
+{id:'f5',t:'Self-order routes: POST /tables/:id/generate-token, GET /self-order/:token (public — returns table + session + pos_config info)'},
+{id:'f6',t:'QR PDF route: GET /tables/qr-pdf — generates PDF with one QR per table using qrcode library'},
+]},
+{n:7,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Products and categories',tasks:[
+{id:'p1',t:'Categories service: list(), create(name, color, sequence), update(id), resequence([{id,sequence}])'},
+{id:'p2',t:'Categories routes: GET /categories, POST /categories, PUT /categories/:id, PUT /categories/resequence'},
+{id:'p3',t:'Products service: list({search, category_id, is_active, page, limit}), getById(id), create(data), update(id, data), toggleActive(id)'},
+{id:'p4',t:'Products service: addVariant(product_id, {attribute_name, value, unit, extra_price}), removeVariant(variant_id)'},
+{id:'p5',t:'Products routes: GET /products, POST /products, GET /products/:id, PUT /products/:id, PATCH /products/:id/toggle, POST /products/:id/variants, DELETE /products/variants/:id'},
+{id:'p6',t:'Test: create product with duplicate name → still works (only SKU not unique here). Create variant for Burger (Pack/6/Unit/$20). List products with category filter.'},
+]},
+{n:8,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Customers',tasks:[
+{id:'cu1',t:'Customers service: list({search, page, limit}), getById(id), create(data), update(id, data)'},
+{id:'cu2',t:'Customers validation: name required, email valid format or empty, phone optional, state autocomplete (return list of Indian states)'},
+{id:'cu3',t:'Customers routes: GET /customers, POST /customers, GET /customers/:id, PUT /customers/:id, GET /customers/states (returns state list for dropdown)'},
+]},
+{n:9,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Orders (core POS logic)',tasks:[
+{id:'o1',t:'Orders service: create(session_id, table_id, created_by) — auto-generate order_number per session (SELECT MAX(order_number)+1), insert order with status=draft'},
+{id:'o2',t:'Orders service: addLine(order_id, {product_id, variant_id, quantity, notes}) — insert order_line, recalculate order subtotal/tax/total atomically'},
+{id:'o3',t:'Orders service: updateLine(line_id, {quantity}) — update qty, recalculate totals'},
+{id:'o4',t:'Orders service: removeLine(line_id) — delete line, recalculate totals'},
+{id:'o5',t:'Orders service: setCustomer(order_id, customer_id)'},
+{id:'o6',t:'Orders service: list({session_id, status, search, page, limit}) with JOIN session + table + customer'},
+{id:'o7',t:'Orders service: getById(id) — returns order + all lines with product name + variant details'},
+{id:'o8',t:'Orders routes: GET /orders, POST /orders, GET /orders/:id, POST /orders/:id/lines, PUT /orders/:id/lines/:line_id, DELETE /orders/:id/lines/:line_id, PATCH /orders/:id/customer'},
+{id:'o9',t:'Archive/delete: only draft orders can be deleted. POST /orders/:id/archive (soft delete), DELETE /orders/:id (hard, only draft)'},
+]},
+{n:10,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Payments',tasks:[
+{id:'py1',t:'Payments service: createPayment(order_id, method, amount) — validates method is enabled in pos_config, validates total matches, inserts payment'},
+{id:'py2',t:'Payments service: validatePayment(payment_id) — sets status=confirmed, sets order status=paid, adds amount to customer.total_sales if customer set'},
+{id:'py3',t:'Payments service: generateUpiQr(order_id) — reads upi_id from pos_config, generates QR string using qrcode library, returns base64 PNG'},
+{id:'py4',t:'Payments service: list({method, date_from, date_to}) — group by payment method for reporting'},
+{id:'py5',t:'Payments routes: POST /payments, POST /payments/:id/validate, GET /payments/upi-qr/:order_id, GET /payments'},
+]},
+{n:11,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Kitchen display (real-time)',tasks:[
+{id:'k1',t:'Kitchen service: sendToKitchen(order_id) — creates kitchen_ticket (status=to_cook) + kitchen_ticket_items from order_lines, emits Socket.io event "new_ticket" to room kitchen_:session_id'},
+{id:'k2',t:'Kitchen service: updateTicketStatus(ticket_id, status) — to_cook→preparing→completed, emits "ticket_updated" socket event'},
+{id:'k3',t:'Kitchen service: markItemPrepared(item_id) — sets is_prepared=true on ticket item, emits "item_prepared" socket event'},
+{id:'k4',t:'Kitchen service: listTickets(session_id, status) — returns tickets with items, product names, quantities'},
+{id:'k5',t:'Socket.io setup: on connection, join room kitchen_:session_id. Rooms isolate each POS terminal kitchen.'},
+{id:'k6',t:'Kitchen routes: POST /kitchen/send/:order_id, PATCH /kitchen/tickets/:id/status, PATCH /kitchen/items/:id/prepare, GET /kitchen/tickets?session_id=&status='},
+{id:'k7',t:'Test: send order to kitchen → ticket appears in to_cook. Click ticket → moves to preparing. Click item → strikethrough (is_prepared=true).'},
+]},
+{n:12,color:'#EEEDFE',tc:'#3C3489',title:'Backend — Reporting dashboard',tasks:[
+{id:'r1',t:'Reports service: getDashboard({pos_config_id, period, session_id, responsible_id, product_id}) — returns total_orders, revenue, avg_order'},
+{id:'r2',t:'Reports service: getSalesChart(filters) — returns data points grouped by hour/day/week/month based on period'},
+{id:'r3',t:'Reports service: getTopSellingCategory(filters) — GROUP BY category, SUM revenue'},
+{id:'r4',t:'Reports service: getTopProducts(filters) — top 5 products by qty and revenue'},
+{id:'r5',t:'Reports service: getTopOrders(filters) — highest value orders with order number, date, session, total'},
+{id:'r6',t:'Reports routes: GET /reports/dashboard, GET /reports/sales-chart, GET /reports/top-categories, GET /reports/top-products, GET /reports/top-orders'},
+]},
+{n:13,color:'#E1F5EE',tc:'#085041',title:'Frontend — setup',tasks:[
+{id:'fe1',t:'cd frontend && npm create vite@latest . -- --template react'},
+{id:'fe2',t:'Install: @tanstack/react-query, zustand, react-router-dom, react-hook-form, zod, @hookform/resolvers, axios'},
+{id:'fe3',t:'Install: socket.io-client, recharts, react-hot-toast, date-fns'},
+{id:'fe4',t:'Create src/api/axios.js — base URL from env, Bearer token interceptor, 401 refresh + retry'},
+{id:'fe5',t:'Create src/store/authStore.js — Zustand: user, accessToken, setAuth(), clearAuth()'},
+{id:'fe6',t:'Create src/store/posStore.js — Zustand: activeSession, activePosConfig, activeTable, currentOrder'},
+{id:'fe7',t:'Create src/socket.js — Socket.io client connecting to backend, joins kitchen room on session open'},
+{id:'fe8',t:'Create .env — VITE_API_URL=http://localhost:4000/api, VITE_SOCKET_URL=http://localhost:4000'},
+{id:'fe9',t:'Wrap App in QueryClientProvider + BrowserRouter + Toaster'},
+{id:'fe10',t:'Create ProtectedRoute component — redirects to /login if no token. Create RoleRoute — redirects if wrong role.'},
+]},
+{n:14,color:'#E1F5EE',tc:'#085041',title:'Frontend — UI atoms',tasks:[
+{id:'ui1',t:'Button — variants: primary, secondary, danger, ghost. Loading spinner state.'},
+{id:'ui2',t:'Input — label, error message, forward ref, focus ring'},
+{id:'ui3',t:'Select — label, options array, error message'},
+{id:'ui4',t:'Modal — overlay wrapper, title, children, footer slot'},
+{id:'ui5',t:'Badge — draft(gray), paid(green), to_cook(amber), preparing(blue), completed(green), cancelled(red)'},
+{id:'ui6',t:'DataTable — columns config, rows, onRowClick, checkbox selection, bulk action slot, empty state, pagination'},
+{id:'ui7',t:'Navbar — top nav: Orders / Products / Reporting, user avatar dropdown (back to home, logout)'},
+{id:'ui8',t:'ColorPicker — 5-6 fixed color circles for category color selection'},
+]},
+{n:15,color:'#E1F5EE',tc:'#085041',title:'Frontend — Auth pages',tasks:[
+{id:'fp1',t:'Login page — Email/Username + Password (toggle show/hide), Login button, "Sign Up here" link'},
+{id:'fp2',t:'Signup page — Name, Email, Password (show/hide), Sign Up button, "Login" link. Inline field errors on blur.'},
+{id:'fp3',t:'Email validation: "Please enter a valid email address". Password: show 4 live rule hints (upper/lower/digit/special).'},
+]},
+{n:16,color:'#E1F5EE',tc:'#085041',title:'Frontend — Admin backend pages',tasks:[
+{id:'ad1',t:'POS Config page — shows "Odoo Cafe" terminal card (last open, last sell amount). "Open Session" button. "+ New" button opens popup modal with Name field + Save/Discard.'},
+{id:'ad2',t:'POS Config settings: Payment Method section — Cash toggle, Digital toggle, UPI toggle + UPI ID input field. Save settings.'},
+{id:'ad3',t:'Orders list page — DataTable: Order No, Session, Date, Total, Customer, Status badge. Checkbox selection. Action dropdown (Archive, Delete — delete only for draft). Click row → order detail.'},
+{id:'ad4',t:'Order detail page — Order Number header, Date, Session, Customer fields. Products tab: table with Product, QTY, Amount, Tax, UOM, Sub-Total, Total. Extra Info tab. Footer: Total w/t, Tax, Final Total. Status buttons: Draft / Paid.'},
+{id:'ad5',t:'Payments page — DataTable grouped by payment method (Cash, Card, UPI). Each group shows subtotal. Columns: Payment method, Date, Amount.'},
+{id:'ad6',t:'Customers list page — DataTable: Name, Contact (email + phone), Total Sales. Search bar. "New" button → customer form modal.'},
+{id:'ad7',t:'Customer form modal — Name, Email, Phone, Address (Street 1, Street 2, City, State dropdown with autocomplete, Country dropdown). Save.'},
+{id:'ad8',t:'Products list page — DataTable: Product, Sale Price, Tax, UOM, Category badge (colored). Checkbox + Action (Archive, Delete). "New" button → product form.'},
+{id:'ad9',t:'Product form page — General Info tab: Name, Category dropdown, Price, UOM dropdown, Tax dropdown (5%/18%/28%), Description. Variant tab: add rows (Attribute, Value, Unit dropdown, Extra Prices). Save.'},
+{id:'ad10',t:'Product Categories page — list with drag-drop resequencing. New row inline on "New" click. Color picker widget (5 fixed colors). Delete button per row.'},
+{id:'ad11',t:'Floor Plan settings page — Floor Plan checkbox toggle. "+ Plan" button opens floor form: Floor Name, Point of Sale dropdown, Tables table (Number, Seats, Active toggle, Appointment Resource). Bulk action: Duplicate, Delete.'},
+]},
+{n:17,color:'#E1F5EE',tc:'#085041',title:'Frontend — POS terminal',tasks:[
+{id:'pt1',t:'Open Session flow — click "Open Session" on config card → sets activeSession in posStore → redirect to POS terminal /pos/:config_id'},
+{id:'pt2',t:'POS terminal top menu — Table tab (→ floor view), Register tab (→ register/order screen), Orders tab (→ orders list). Right side: Reload Data, Go to Back-end, Close Register buttons.'},
+{id:'pt3',t:'Floor view — grid of table cards (Table 1…N). Table card shows number. Selected table highlighted. Click table → go to order screen for that table.'},
+{id:'pt4',t:'Order screen — Left: product grid filtered by category tabs (Quick Bites, Drinks, Dessert, All). Search bar. Each product card shows name + price. Right: order cart (lines with qty +/- controls, price, remove). Bottom: Customer button, Notes button, Prices button, Send button (→ kitchen), Payment button. Total shown.'},
+{id:'pt5',t:'Category filter tabs — clicking category filters product grid. "All" shows everything. Categories come from GET /categories.'},
+{id:'pt6',t:'Product click → adds to cart. If product has variants, open variant selection popup before adding.'},
+{id:'pt7',t:'Send button → POST /kitchen/send/:order_id → shows "Sent to kitchen" toast. Button shows qty badge.'},
+{id:'pt8',t:'Payment screen — shows total amount. Three payment method buttons: Cash, Digital (Bank, Card), UPI. Click method to enter amount. Validate button. Customer field. Notes field. Is Invoice checkbox. Number pad.'},
+{id:'pt9',t:'UPI QR flow — click UPI method → modal opens showing QR code (from GET /payments/upi-qr/:order_id), amount, Confirmed + Cancel buttons. On Confirmed → POST /payments/:id/validate → payment confirmation screen ("Amount Paid $X", Email Receipt, Continue). Click anywhere → back to floor view.'},
+{id:'pt10',t:'Payment confirmation screen — shows logo, "Amount Paid $580". Click anywhere → dismisses → redirect to floor view automatically.'},
+]},
+{n:18,color:'#E1F5EE',tc:'#085041',title:'Frontend — Kitchen display',tasks:[
+{id:'kd1',t:'Kitchen display route /kitchen/:session_id — connects Socket.io, joins room kitchen_:session_id on mount'},
+{id:'kd2',t:'Top bar — All count, To Cook count (badge), Preparing count (badge), Completed count (badge). Search bar. Pagination (1-3 <> arrows).'},
+{id:'kd3',t:'Filter sidebar — Products list (only products in active tickets). Categories list. Clicking filters visible tickets.'},
+{id:'kd4',t:'Ticket cards — card shows order number (#2205), items list (3x Burger, 3x Pizza etc). Click card → moves entire ticket to next stage (to_cook→preparing→completed). Click individual item line → marks is_prepared=true (strike-through).'},
+{id:'kd5',t:'Real-time updates — Socket.io "new_ticket" event → new card appears instantly. "ticket_updated" → card moves stage. "item_prepared" → item gets strikethrough.'},
+]},
+{n:19,color:'#E1F5EE',tc:'#085041',title:'Frontend — Customer display',tasks:[
+{id:'cd1',t:'Customer display route /customer-display — accessible by appending /customer-display to DB URL. No auth required.'},
+{id:'cd2',t:'Shows current order items list (product name, qty, price). Sub-total, Tax, Total. Left side: logo + "Welcome to Store Name".'},
+{id:'cd3',t:'UPI QR state — when payment method is UPI, show QR modal overlay on customer display simultaneously.'},
+{id:'cd4',t:'"Thank you for shopping with us" screen shown after order is paid.'},
+]},
+{n:20,color:'#E1F5EE',tc:'#085041',title:'Frontend — Reporting dashboard',tasks:[
+{id:'rep1',t:'Reports page /reporting — top filter bar: Period dropdown (Today/Weekly/Monthly/365 days/Custom), Responsible dropdown, Session dropdown, Product dropdown.'},
+{id:'rep2',t:'KPI cards row — Total Orders, Revenue (with % vs last period), Average Order (with % vs last period). Dynamic based on filters.'},
+{id:'rep3',t:'Sales line chart (Recharts) — Y axis = revenue, X axis = time. Updates dynamically when period changes.'},
+{id:'rep4',t:'Top Selling Category pie chart (Recharts) — legend shows category names with % (Pizza 45%, Burger 30%, Drink 25% etc).'},
+{id:'rep5',t:'Top Orders table — Order, Session, Amount/Date, Sale, In-session, Employee, Time columns. Highest value orders shown.'},
+{id:'rep6',t:'Top Products table — Product name, Qty, Revenue columns. Top 5 by revenue.'},
+{id:'rep7',t:'Top Category table — Category, Revenue columns.'},
+]},
+{n:21,color:'#FAECE7',tc:'#712B13',title:'Validation & security checklist',tasks:[
+{id:'v1',t:'Email field: "Please enter a valid email address" on blur'},
+{id:'v2',t:'Password: show 4 rule hints live (uppercase ✗ → ✓ as user types)'},
+{id:'v3',t:'Duplicate email on signup: "This email is already registered"'},
+{id:'v4',t:'Order cannot be validated without at least 1 product line'},
+{id:'v5',t:'Payment amount must equal order total — reject if mismatch'},
+{id:'v6',t:'Only admin can: create/edit pos_config, manage products, manage floors, view reports'},
+{id:'v7',t:'Only open session orders are editable — paid orders are read-only'},
+{id:'v8',t:'Delete only allowed on draft orders — paid orders can only be archived'},
+{id:'v9',t:'Access token in Zustand memory only — NEVER localStorage. Refresh token httpOnly cookie.'},
+{id:'v10',t:'All routes require requireAuth. Admin routes require requireRole("admin").'},
+{id:'v11',t:'Rate limiter on /api/auth — 20 req per 15 min. Helmet.js headers. CORS restricted.'},
+]},
+{n:22,color:'#EAF3DE',tc:'#27500A',title:'Testing & submission',tasks:[
+{id:'ts1',t:'Fresh DB: drop + recreate pos_cafe, run migrate, run seed — confirm no errors'},
+{id:'ts2',t:'Full POS flow: login → open session → select table → add products → send to kitchen → pay (cash) → confirm paid'},
+{id:'ts3',t:'UPI QR flow: add products → payment → click UPI → QR appears → confirm → paid → back to floor'},
+{id:'ts4',t:'Kitchen display: open /kitchen/:session_id in second tab → send order → ticket appears in real time'},
+{id:'ts5',t:'Kitchen actions: click ticket → moves to preparing. Click item → strikethrough. Click again → completed.'},
+{id:'ts6',t:'Reports: change period to Weekly → charts + KPIs update dynamically'},
+{id:'ts7',t:'Validation: wrong email format, short password, duplicate email — all show correct inline errors'},
+{id:'ts8',t:'Admin-only test: login as staff → try to access /products/new → blocked (403)'},
+{id:'ts9',t:'git: merge all feature branches → develop → main. Commit history: feat:/fix:/chore: prefixes.'},
+{id:'ts10',t:'Final README: setup steps, demo credentials, architecture summary, API endpoints list'},
+]},
+];
+const KEY='pos_roadmap_v1';
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{};}catch(e){return {};}}
+function save(s){try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){}}
+let state=load();
+const total=SECTIONS.reduce((a,s)=>a+s.tasks.length,0);
+function pct(){return Math.round(Object.values(state).filter(Boolean).length/total*100);}
+function updateProg(){const p=pct();document.getElementById('pf').style.width=p+'%';document.getElementById('pl').textContent=p+'%';}
+function toggle(id){state[id]=!state[id];save(state);const el=document.getElementById('tk-'+id);const bx=el.querySelector('.box');el.classList.toggle('done',!!state[id]);bx.classList.toggle('on',!!state[id]);updateProg();}
+function reset(){state={};save(state);document.querySelectorAll('.task').forEach(e=>e.classList.remove('done'));document.querySelectorAll('.box').forEach(e=>e.classList.remove('on'));updateProg();}
+const TICK=`<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="var(--color-text-success)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+document.getElementById('root').innerHTML=SECTIONS.map(s=>{
+const tasks=s.tasks.map(t=>{const done=!!state[t.id];return`<div class="task${done?' done':''}" id="tk-${t.id}" onclick="toggle('${t.id}')"><div class="box${done?' on':''}">${done?TICK:''}</div><span class="txt">${t.t}</span></div>`;}).join('');
+return`<div class="section"><div class="section-title"><span class="snum" style="background:${s.color};color:${s.tc}">${s.n}</span>${s.title}</div>${tasks}</div>`;
+}).join('');
+updateProg();
+</script>
