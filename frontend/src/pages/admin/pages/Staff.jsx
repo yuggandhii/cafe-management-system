@@ -1,8 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../../api/axios';
+import toast from 'react-hot-toast';
 import styles from '../Dashboard.module.css';
 
 export default function Staff() {
+  const qc = useQueryClient();
   const { data: summary } = useQuery({
     queryKey: ['staff-summary'],
     queryFn: () => api.get('/staff/summary').then(r => r.data.data),
@@ -37,7 +39,14 @@ export default function Staff() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 900, fontSize: 13, textTransform: 'uppercase' }}>{s.name}</div>
-                <span className={[styles.badge, s.role === 'admin' ? styles.badgeAmber : s.role === 'kitchen' ? styles.badgeAmber : styles.badgeBlue].join(' ')} style={s.role === 'kitchen' ? {background:'#ef4444', color:'#fff', borderColor:'#000'} : {}}>{s.role}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                   <span className={[styles.badge, s.role === 'admin' ? styles.badgeAmber : s.role === 'kitchen' ? styles.badgeAmber : styles.badgeBlue].join(' ')} style={s.role === 'kitchen' ? {background:'#ef4444', color:'#fff', borderColor:'#000'} : {}}>{s.role}</span>
+                   {s.today_status === 'clocked_in' ? (
+                     <span style={{ fontSize: 8, background: '#16a34a', color: '#fff', padding: '1px 4px', fontWeight: 900, border: '1px solid #000' }}>LIVE</span>
+                   ) : (
+                     <span style={{ fontSize: 8, background: '#64748b', color: '#fff', padding: '1px 4px', fontWeight: 900, border: '1px solid #000' }}>AWAY</span>
+                   )}
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1 }}>
@@ -48,22 +57,37 @@ export default function Staff() {
                 </div>
               </div>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
-                ['Hours', `${s.total_hours}h`],
-                ['Sessions', s.total_sessions],
-                ['Orders', s.total_orders],
-                ['Revenue', `₹${parseFloat(s.total_revenue).toFixed(0)}`],
+                ['Total Hours', `${s.total_hours}h`],
+                ['Orders/Shifts', s.role === 'kitchen' ? s.total_sessions : s.total_orders],
+                ['Gross Pay', `₹${parseFloat(s.gross_pay).toFixed(0)}`],
+                ['Due Balance', `₹${parseFloat(s.balance_due).toFixed(0)}`],
               ].map(([l, v]) => (
                 <div key={l} style={{ background: 'var(--surface-alt)', border: '1px solid var(--border-medium)', padding: '6px 10px' }}>
                   <div style={{ fontSize: 8, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</div>
-                  <div style={{ fontWeight: 900, fontSize: 15 }}>{v}</div>
+                  <div style={{ fontWeight: 900, fontSize: 13 }}>{v}</div>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 10, padding: '8px 10px', background: '#fef3c7', border: '2px solid #d97706', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', color: '#000' }}>Total Paid</span>
-              <span style={{ fontWeight: 900, fontSize: 14, color: '#000' }}>₹{parseFloat(s.total_paid).toFixed(0)}</span>
+
+            <div style={{ marginTop: 12, display: 'flex', gap: 4 }}>
+               {s.today_status !== 'clocked_in' ? (
+                 <button 
+                   onClick={async () => { try { await api.post('/staff/attendance/clock-in', { staff_id: s.id }); qc.invalidateQueries(['staff-summary']); toast.success('Clocked in'); } catch(e) { toast.error(e.response?.data?.message || 'Error'); } }}
+                   style={{ flex: 1, background: '#16a34a', color: '#fff', border: '2px solid #000', padding: '4px', fontSize: 9, fontWeight: 900, cursor: 'pointer', boxShadow: '2px 2px 0 #000' }}
+                 >CLOCK IN</button>
+               ) : (
+                 <button 
+                   onClick={async () => { try { await api.post('/staff/attendance/clock-out', { staff_id: s.id }); qc.invalidateQueries(['staff-summary']); toast.success('Clocked out'); } catch(e) { toast.error(e.response?.data?.message || 'Error'); } }}
+                   style={{ flex: 1, background: '#ef4444', color: '#fff', border: '2px solid #000', padding: '4px', fontSize: 9, fontWeight: 900, cursor: 'pointer', boxShadow: '2px 2px 0 #000' }}
+                 >CLOCK OUT</button>
+               )}
+               <button 
+                 onClick={() => { /* Open Payroll Modal */ }}
+                 style={{ flex: 1, background: '#facc15', color: '#000', border: '2px solid #000', padding: '4px', fontSize: 9, fontWeight: 900, cursor: 'pointer', boxShadow: '2px 2px 0 #000' }}
+               >SETTLE PAY</button>
             </div>
           </div>
         ))}
@@ -85,8 +109,7 @@ export default function Staff() {
                 <th className={styles.th}>Hours</th>
                 <th className={styles.th}>Orders</th>
                 <th className={styles.th}>Revenue</th>
-                <th className={styles.th}>Opening Cash</th>
-                <th className={styles.th}>Closing Cash</th>
+                <th className={styles.th}>Type</th>
                 <th className={styles.th}>Status</th>
                 <th className={styles.th}>Paid</th>
               </tr>
@@ -99,10 +122,13 @@ export default function Staff() {
                   <td className={styles.td} style={{ fontSize: 12 }}>{new Date(s.opened_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
                   <td className={styles.td} style={{ fontSize: 12 }}>{s.closed_at ? new Date(s.closed_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : <span style={{ color: '#16a34a', fontWeight: 700 }}>Active</span>}</td>
                   <td className={styles.td}><strong>{s.hours_worked}h</strong></td>
-                  <td className={styles.td}>{s.order_count}</td>
+                  <td className={styles.td}>{s.order_count || '—'}</td>
                   <td className={styles.td}><strong>₹{parseFloat(s.revenue).toFixed(0)}</strong></td>
-                  <td className={styles.td}>₹{parseFloat(s.opening_cash).toFixed(0)}</td>
-                  <td className={styles.td}>{s.closing_cash ? `₹${parseFloat(s.closing_cash).toFixed(0)}` : '—'}</td>
+                  <td className={styles.td}>
+                    <span style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', color: s.source === 'session' ? '#2563eb' : '#ef4444' }}>
+                      {s.source === 'session' ? 'POS' : 'KIT'}
+                    </span>
+                  </td>
                   <td className={styles.td}><span className={[styles.badge, s.status === 'open' ? styles.badgePaid : styles.badgeDraft].join(' ')}>{s.status}</span></td>
                   <td className={styles.td}><strong>₹{parseFloat(s.total_paid).toFixed(0)}</strong></td>
                 </tr>
